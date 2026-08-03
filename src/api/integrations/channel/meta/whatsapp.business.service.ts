@@ -799,7 +799,7 @@ export class BusinessStartupService extends ChannelStartupService {
                 fallbackMessageId,
                 payload: received,
               });
-              return;
+              continue;
             }
 
             if (item.message === null && item.status === undefined) {
@@ -832,7 +832,7 @@ export class BusinessStartupService extends ChannelStartupService {
                 );
               }
 
-              return;
+              continue;
             }
 
             const message: any = {
