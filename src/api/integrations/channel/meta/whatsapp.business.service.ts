@@ -759,6 +759,7 @@ export class BusinessStartupService extends ChannelStartupService {
       }
       if (received.statuses) {
         for await (const item of received.statuses) {
+          const fallbackMessageId = item?.message_id || item?.message?.id || item?.id;
           const key = {
             id: item.id,
             remoteJid: this.phoneNumber,
@@ -768,7 +769,7 @@ export class BusinessStartupService extends ChannelStartupService {
             return;
           }
           if (key.remoteJid !== 'status@broadcast' && !key?.remoteJid?.match(/(:\d+)/)) {
-            const findMessage = await this.prismaRepository.message.findFirst({
+            let findMessage = await this.prismaRepository.message.findFirst({
               where: {
                 instanceId: this.instanceId,
                 key: {
@@ -778,7 +779,26 @@ export class BusinessStartupService extends ChannelStartupService {
               },
             });
 
+            if (!findMessage && fallbackMessageId) {
+              findMessage = await this.prismaRepository.message.findFirst({
+                where: {
+                  instanceId: this.instanceId,
+                  key: {
+                    path: ['id'],
+                    equals: fallbackMessageId,
+                  },
+                },
+              });
+            }
+
             if (!findMessage) {
+              this.logger.warn({
+                local: 'MetaStatusLookup',
+                instanceId: this.instanceId,
+                statusId: item.id,
+                fallbackMessageId,
+                payload: received,
+              });
               return;
             }
 
