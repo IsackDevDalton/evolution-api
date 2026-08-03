@@ -676,7 +676,7 @@ export class BusinessStartupService extends ChannelStartupService {
         this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
 
         await chatbotController.emit({
-          instance: { instanceName: this.instance.name, instanceId: this.instanceId },
+          instance: { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
           remoteJid: messageRaw.key.remoteJid,
           msg: messageRaw,
           pushName: messageRaw.pushName,
@@ -685,7 +685,7 @@ export class BusinessStartupService extends ChannelStartupService {
         if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
           const chatwootSentMessage = await this.chatwootService.eventWhatsapp(
             Events.MESSAGES_UPSERT,
-            { instanceName: this.instance.name, instanceId: this.instanceId },
+            { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
             messageRaw,
           );
 
@@ -739,7 +739,7 @@ export class BusinessStartupService extends ChannelStartupService {
           if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
             await this.chatwootService.eventWhatsapp(
               Events.CONTACTS_UPDATE,
-              { instanceName: this.instance.name, instanceId: this.instanceId },
+              { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
               contactRaw,
             );
           }
@@ -815,6 +815,11 @@ export class BusinessStartupService extends ChannelStartupService {
                 instanceId: this.instanceId,
               };
 
+              await this.prismaRepository.message.update({
+                where: { id: findMessage.id },
+                data: { status: message.status },
+              });
+
               await this.prismaRepository.messageUpdate.create({
                 data: message,
               });
@@ -822,7 +827,7 @@ export class BusinessStartupService extends ChannelStartupService {
               if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
                 this.chatwootService.eventWhatsapp(
                   Events.MESSAGES_DELETE,
-                  { instanceName: this.instance.name, instanceId: this.instanceId },
+                  { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
                   { key: key },
                 );
               }
@@ -841,6 +846,11 @@ export class BusinessStartupService extends ChannelStartupService {
             };
 
             this.sendDataWebhook(Events.MESSAGES_UPDATE, message);
+
+            await this.prismaRepository.message.update({
+              where: { id: findMessage.id },
+              data: { status: message.status },
+            });
 
             await this.prismaRepository.messageUpdate.create({
               data: message,
@@ -1184,14 +1194,14 @@ export class BusinessStartupService extends ChannelStartupService {
       if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && !isIntegration) {
         this.chatwootService.eventWhatsapp(
           Events.SEND_MESSAGE,
-          { instanceName: this.instance.name, instanceId: this.instanceId },
+          { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
           messageRaw,
         );
       }
 
       if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && isIntegration)
         await chatbotController.emit({
-          instance: { instanceName: this.instance.name, instanceId: this.instanceId },
+          instance: { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
           remoteJid: messageRaw.key.remoteJid,
           msg: messageRaw,
           pushName: messageRaw.pushName,
