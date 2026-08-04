@@ -837,29 +837,49 @@ export class BusinessStartupService extends ChannelStartupService {
               continue;
             }
 
-            const message: any = {
+            const statusUpper = item.status.toUpperCase();
+            const hasError = statusUpper === 'FAILED' || statusUpper === 'ERROR' || !!(item.errors && item.errors.length > 0);
+
+            const messagePayload: any = {
               messageId: findMessage.id,
               keyId: key.id,
               remoteJid: key.remoteJid,
               fromMe: key.fromMe,
               participant: key?.remoteJid,
-              status: item.status.toUpperCase(),
+              status: statusUpper,
               instanceId: this.instanceId,
             };
 
-            this.sendDataWebhook(Events.MESSAGES_UPDATE, message);
+            this.sendDataWebhook(Events.MESSAGES_UPDATE, messagePayload);
 
+            // Siempre actualiza el estado principal del mensaje en la tabla Message
             await this.prismaRepository.message.update({
               where: { id: findMessage.id },
-              data: { status: message.status },
+              data: { status: statusUpper },
             });
 
-            await this.prismaRepository.messageUpdate.create({
-              data: message,
-            });
+            // Solo registra en MessageUpdate cuando hay un error de entrega
+            if (hasError) {
+              const errorRecord: any = {
+                ...messagePayload,
+                ...(item.errors && item.errors.length > 0 ? { errorPayload: { errors: item.errors } } : {}),
+              };
+
+              this.logger.warn({
+                local: 'MetaMessageError',
+                instanceId: this.instanceId,
+                keyId: key.id,
+                status: statusUpper,
+                errors: item.errors,
+              });
+
+              await this.prismaRepository.messageUpdate.create({
+                data: errorRecord,
+              });
+            }
 
             if (findMessage.webhookUrl) {
-              await axios.post(findMessage.webhookUrl, message);
+              await axios.post(findMessage.webhookUrl, messagePayload);
             }
           }
         }

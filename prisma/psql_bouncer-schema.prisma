@@ -181,17 +181,19 @@ model Message {
 }
 
 model MessageUpdate {
-  id          String   @id @default(cuid())
-  keyId       String   @db.VarChar(100)
-  remoteJid   String   @db.VarChar(100)
-  fromMe      Boolean  @db.Boolean
-  participant String?  @db.VarChar(100)
-  pollUpdates Json?    @db.JsonB
-  status      String   @db.VarChar(30)
-  Message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  messageId   String
-  Instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  instanceId  String
+  id           String    @id @default(cuid())
+  keyId        String    @db.VarChar(100)
+  remoteJid    String    @db.VarChar(100)
+  fromMe       Boolean   @db.Boolean
+  participant  String?   @db.VarChar(100)
+  pollUpdates  Json?     @db.JsonB
+  status       String    @db.VarChar(30)
+  errorPayload Json?     @db.JsonB
+  createdAt    DateTime  @default(now()) @db.Timestamp
+  Message      Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId    String
+  Instance     Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instanceId   String
 
   @@index([instanceId])
   @@index([messageId])
