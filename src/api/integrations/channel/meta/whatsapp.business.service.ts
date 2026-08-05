@@ -713,14 +713,12 @@ export class BusinessStartupService extends ChannelStartupService {
           });
         }
 
-        const contact = await this.prismaRepository.contact.findFirst({
-          where: { instanceId: this.instanceId, remoteJid: key.remoteJid },
-        });
+        const rawPhone = received.contacts?.[0]?.profile?.phone || received.contacts?.[0]?.wa_id || key.remoteJid;
+        const targetRemoteJid = createJid(rawPhone);
 
         const contactRaw: any = {
-          remoteJid: received.contacts[0]?.profile?.phone || received.contacts[0]?.wa_id || key.remoteJid,
+          remoteJid: targetRemoteJid,
           pushName,
-          // profilePicUrl: '',
           instanceId: this.instanceId,
         };
 
@@ -728,14 +726,11 @@ export class BusinessStartupService extends ChannelStartupService {
           return;
         }
 
-        if (contact) {
-          const contactRaw: any = {
-            remoteJid: received.contacts[0]?.profile?.phone || received.contacts[0]?.wa_id || key.remoteJid,
-            pushName,
-            // profilePicUrl: '',
-            instanceId: this.instanceId,
-          };
+        const contact = await this.prismaRepository.contact.findFirst({
+          where: { instanceId: this.instanceId, remoteJid: targetRemoteJid },
+        });
 
+        if (contact) {
           this.sendDataWebhook(Events.CONTACTS_UPDATE, contactRaw);
 
           if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
@@ -747,7 +742,7 @@ export class BusinessStartupService extends ChannelStartupService {
           }
 
           await this.prismaRepository.contact.updateMany({
-            where: { remoteJid: contact.remoteJid },
+            where: { instanceId: this.instanceId, remoteJid: targetRemoteJid },
             data: contactRaw,
           });
           return;
@@ -755,9 +750,22 @@ export class BusinessStartupService extends ChannelStartupService {
 
         this.sendDataWebhook(Events.CONTACTS_UPSERT, contactRaw);
 
-        this.prismaRepository.contact.create({
-          data: contactRaw,
-        });
+        try {
+          await this.prismaRepository.contact.create({
+            data: contactRaw,
+          });
+        } catch (contactError) {
+          this.logger.warn({
+            local: 'ContactCreateFallback',
+            instanceId: this.instanceId,
+            remoteJid: targetRemoteJid,
+            error: contactError?.message,
+          });
+          await this.prismaRepository.contact.updateMany({
+            where: { instanceId: this.instanceId, remoteJid: targetRemoteJid },
+            data: contactRaw,
+          });
+        }
       }
       if (received.statuses) {
         for await (const item of received.statuses) {
