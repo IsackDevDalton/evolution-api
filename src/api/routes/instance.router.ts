@@ -1,6 +1,8 @@
 import { RouterBroker } from '@api/abstract/abstract.router';
 import { InstanceDto, SetPresenceDto } from '@api/dto/instance.dto';
 import { instanceController } from '@api/server.module';
+import { waMonitor } from '@api/server.module';
+import { authGuard } from '@api/guards/auth.guard';
 import { ConfigService } from '@config/env.config';
 import { instanceSchema, presenceOnlySchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
@@ -14,6 +16,12 @@ export class InstanceRouter extends RouterBroker {
   ) {
     super();
     this.router
+      .post('/sync', authGuard.apikey, async (req, res) => {
+        const instanceId = req.body?.instanceId;
+        if (typeof instanceId !== 'string' || !instanceId) return res.status(400).json({ error: 'instanceId is required' });
+        const result = await waMonitor.syncMetaInstance(instanceId, req.body?.deleted === true);
+        return res.status(HttpStatus.OK).json(result);
+      })
       .post('/create', ...guards, async (req, res) => {
         const response = await this.dataValidate<InstanceDto>({
           request: req,
@@ -23,26 +31,6 @@ export class InstanceRouter extends RouterBroker {
         });
 
         return res.status(HttpStatus.CREATED).json(response);
-      })
-      .post(this.routerPath('restart'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: null,
-          ClassRef: InstanceDto,
-          execute: (instance) => instanceController.restartInstance(instance),
-        });
-
-        return res.status(HttpStatus.OK).json(response);
-      })
-      .get(this.routerPath('connect'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: null,
-          ClassRef: InstanceDto,
-          execute: (instance) => instanceController.connectToWhatsapp(instance),
-        });
-
-        return res.status(HttpStatus.OK).json(response);
       })
       .get(this.routerPath('connectionState'), ...guards, async (req, res) => {
         const response = await this.dataValidate<InstanceDto>({

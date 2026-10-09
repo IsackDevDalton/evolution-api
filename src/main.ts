@@ -7,7 +7,6 @@ import { PrismaRepository } from '@api/repository/repository.service';
 import { HttpStatus, router } from '@api/routes/index.router';
 import { eventManager, waMonitor } from '@api/server.module';
 import {
-  Auth,
   configService,
   Cors,
   HttpServer,
@@ -45,12 +44,17 @@ async function bootstrap() {
   await prismaRepository.onModuleInit();
 
   app.use(
+    (_req, res, next) => {
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('X-Frame-Options', 'DENY');
+      res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+      res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      next();
+    },
     cors({
       origin(requestOrigin, callback) {
         const { ORIGIN } = configService.get<Cors>('CORS');
-        if (ORIGIN.includes('*')) {
-          return callback(null, true);
-        }
+        if (!requestOrigin || ORIGIN.includes('*')) return callback(null, false);
         if (ORIGIN.indexOf(requestOrigin) !== -1) {
           return callback(null, true);
         }
@@ -59,16 +63,14 @@ async function bootstrap() {
       methods: [...configService.get<Cors>('CORS').METHODS],
       credentials: configService.get<Cors>('CORS').CREDENTIALS,
     }),
-    urlencoded({ extended: true, limit: '136mb' }),
-    json({ limit: '136mb' }),
+    urlencoded({ extended: true, limit: '25mb' }),
+    json({ limit: '25mb' }),
     compression(),
   );
 
   app.set('view engine', 'hbs');
   app.set('views', join(ROOT_DIR, 'views'));
   app.use(express.static(join(ROOT_DIR, 'public')));
-
-  app.use('/store', express.static(join(ROOT_DIR, 'store')));
 
   app.use('/', router);
 
@@ -81,7 +83,6 @@ async function bootstrap() {
           const tzoffset = new Date().getTimezoneOffset() * 60000; //offset in milliseconds
           const localISOTime = new Date(Date.now() - tzoffset).toISOString();
           const now = localISOTime;
-          const globalApiKey = configService.get<Auth>('AUTHENTICATION').API_KEY.KEY;
           const serverUrl = configService.get<HttpServer>('SERVER').URL;
 
           const errorData = {
@@ -95,7 +96,6 @@ async function bootstrap() {
               },
             },
             date_time: now,
-            api_key: globalApiKey,
             server_url: serverUrl,
           };
 
@@ -147,6 +147,11 @@ async function bootstrap() {
   }
 
   eventManager.init(server);
+
+  // Bound slow or stalled HTTP clients. Jobs need separate cancellation.
+  server.headersTimeout = 15_000;
+  server.requestTimeout = 30_000;
+  server.keepAliveTimeout = 5_000;
 
   const sentryConfig = configService.get<SentryConfig>('SENTRY');
   if (sentryConfig.DSN) {

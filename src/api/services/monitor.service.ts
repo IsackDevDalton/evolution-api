@@ -1,9 +1,9 @@
 import { InstanceDto } from '@api/dto/instance.dto';
 import { ProviderFiles } from '@api/provider/sessions';
 import { PrismaRepository } from '@api/repository/repository.service';
-import { channelController } from '@api/server.module';
+import { channelController, eventManager } from '@api/server.module';
 import { Events, Integration } from '@api/types/wa.types';
-import { CacheConf, Chatwoot, ConfigService, Database, DelInstance, ProviderSession } from '@config/env.config';
+import { CacheConf, Chatwoot, ConfigService, Database, DelInstance, ProviderSession, Webhook } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { INSTANCE_DIR, STORE_DIR } from '@config/path.config';
 import { NotFoundException } from '@exceptions';
@@ -251,7 +251,7 @@ export class WAMonitoringService {
           connectionStatus:
             data.integration && data.integration === Integration.WHATSAPP_BAILEYS ? 'close' : (data.status ?? 'open'),
           number: data.number,
-          integration: data.integration || Integration.WHATSAPP_BAILEYS,
+          integration: data.integration || Integration.WHATSAPP_BUSINESS,
           token: data.hash,
           clientName: clientName,
           businessId: data.businessId,
@@ -271,6 +271,8 @@ export class WAMonitoringService {
   }
 
   private async setInstance(instanceData: InstanceDto) {
+    // Legacy non-Meta instances remain stored but must not reconnect.
+    if (instanceData.integration !== Integration.WHATSAPP_BUSINESS) return;
     const instance = channelController.init(instanceData, {
       configService: this.configService,
       eventEmitter: this.eventEmitter,
@@ -305,6 +307,66 @@ export class WAMonitoringService {
     }
 
     this.waInstances[instanceData.instanceName] = instance;
+  }
+
+  public async syncMetaInstance(instanceId: string, deleted = false) {
+    const previous = Object.entries(this.waInstances).find(([, instance]) => instance.instanceId === instanceId);
+    if (deleted) {
+      if (previous) delete this.waInstances[previous[0]];
+      return { removed: !!previous };
+    }
+
+    const stored = await this.prismaRepository.instance.findUnique({ where: { id: instanceId } });
+    if (!stored || stored.integration !== Integration.WHATSAPP_BUSINESS) {
+      throw new NotFoundException('Meta instance not found');
+    }
+
+    const webhookConfig = this.configService.get<Webhook>('WEBHOOK');
+    const globalWebhook = webhookConfig.GLOBAL;
+    const webhookUrl = process.env.WAPPI_REALTIME_WEBHOOK_URL;
+    if (globalWebhook?.ENABLED && (!/^https:\/\//i.test(globalWebhook.URL) ||
+      !webhookConfig.EVENTS.MESSAGES_UPSERT || !webhookConfig.EVENTS.MESSAGES_UPDATE || !webhookConfig.EVENTS.SEND_MESSAGE)) {
+      throw new Error('Global webhook must use HTTPS and enable MESSAGES_UPSERT, MESSAGES_UPDATE and SEND_MESSAGE');
+    }
+    if (!globalWebhook?.ENABLED && (!webhookUrl || !/^https:\/\//i.test(webhookUrl))) {
+      throw new Error('WAPPI_REALTIME_WEBHOOK_URL must be an HTTPS URL when the global webhook is disabled');
+    }
+
+    const previousInstance = previous?.[1];
+    if (previous) delete this.waInstances[previous[0]];
+    try {
+      await this.setInstance({
+        instanceId: stored.id,
+        instanceName: stored.name,
+        integration: stored.integration,
+        token: stored.token,
+        number: stored.number,
+        businessId: stored.businessId,
+        ownerJid: stored.ownerJid,
+        connectionStatus: stored.connectionStatus,
+      });
+      if (!globalWebhook?.ENABLED) {
+        await eventManager.webhook.set(stored.name, {
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
+            headers: {},
+            byEvents: false,
+            base64: false,
+          },
+        });
+      } else {
+        await eventManager.webhook.set(stored.name, {
+          webhook: { enabled: false, url: '', events: [], headers: {}, byEvents: false, base64: false },
+        });
+      }
+    } catch (error) {
+      delete this.waInstances[stored.name];
+      if (previous && previousInstance) this.waInstances[previous[0]] = previousInstance;
+      throw error;
+    }
+    return { instanceId: stored.id, instanceName: stored.name, webhookConfigured: true };
   }
 
   private async loadInstancesFromRedis() {
