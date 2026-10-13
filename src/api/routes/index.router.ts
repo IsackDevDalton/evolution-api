@@ -41,6 +41,18 @@ const guards = [instanceExistsGuard, instanceLoggedGuard, authGuard['apikey']];
 const telemetry = new Telemetry();
 
 if (!serverConfig.DISABLE_MANAGER) router.use('/manager', new ViewsRouter().router);
+if (!serverConfig.DISABLE_MANAGER) {
+  router.post('/verify-creds', authGuard['apikey'], async (req, res) => {
+    const facebookConfig = configService.get<Facebook>('FACEBOOK');
+    return res.status(HttpStatus.OK).json({
+      status: HttpStatus.OK,
+      message: 'Credentials are valid',
+      facebookAppId: facebookConfig.APP_ID,
+      facebookConfigId: facebookConfig.CONFIG_ID,
+      facebookUserToken: facebookConfig.USER_TOKEN,
+    });
+  });
+}
 
 router.get('/assets/*', (req, res) => {
   const fileName = req.params[0];
@@ -76,16 +88,6 @@ router
   .get('/', (_req, res) => {
     if (serverConfig.DISABLE_MANAGER) return res.sendStatus(HttpStatus.NOT_FOUND);
     return res.redirect(302, '/manager/');
-  })
-  .post('/verify-creds', authGuard['apikey'], async (req, res) => {
-    const facebookConfig = configService.get<Facebook>('FACEBOOK');
-    return res.status(HttpStatus.OK).json({
-      status: HttpStatus.OK,
-      message: 'Credentials are valid',
-      facebookAppId: facebookConfig.APP_ID,
-      facebookConfigId: facebookConfig.CONFIG_ID,
-      facebookUserToken: facebookConfig.USER_TOKEN,
-    });
   })
   .use('/instance', new InstanceRouter(configService, ...guards).router)
   .use('/message', new MessageRouter(...guards).router)

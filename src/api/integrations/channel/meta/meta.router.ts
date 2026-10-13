@@ -3,6 +3,8 @@ import { metaController } from '@api/server.module';
 import { ConfigService, WaBusiness } from '@config/env.config';
 import { Router } from 'express';
 
+let loggedMetaWebhookRequests = 0;
+
 export class MetaRouter extends RouterBroker {
   constructor(readonly configService: ConfigService) {
     super();
@@ -13,6 +15,11 @@ export class MetaRouter extends RouterBroker {
         else res.send('Error, wrong validation token');
       })
       .post(this.routerPath('webhook/meta', false), async (req, res) => {
+        if (process.env.META_WEBHOOK_LOG_HEADERS === 'true' && loggedMetaWebhookRequests < 5) {
+          loggedMetaWebhookRequests += 1;
+          console.info('[Meta webhook debug] Incoming POST headers:', req.rawHeaders);
+        }
+
         const { body } = req;
         const response = await metaController.receiveWebhook(body);
 

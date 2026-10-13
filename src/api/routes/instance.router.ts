@@ -3,7 +3,7 @@ import { InstanceDto, SetPresenceDto } from '@api/dto/instance.dto';
 import { instanceController } from '@api/server.module';
 import { waMonitor } from '@api/server.module';
 import { authGuard } from '@api/guards/auth.guard';
-import { ConfigService } from '@config/env.config';
+import { ConfigService, HttpServer } from '@config/env.config';
 import { instanceSchema, presenceOnlySchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
 
@@ -42,18 +42,6 @@ export class InstanceRouter extends RouterBroker {
 
         return res.status(HttpStatus.OK).json(response);
       })
-      .get(this.routerPath('fetchInstances', false), ...guards, async (req, res) => {
-        const key = req.get('apikey');
-
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: null,
-          ClassRef: InstanceDto,
-          execute: (instance) => instanceController.fetchInstances(instance, key),
-        });
-
-        return res.status(HttpStatus.OK).json(response);
-      })
       .post(this.routerPath('setPresence'), ...guards, async (req, res) => {
         const response = await this.dataValidate<null>({
           request: req,
@@ -84,6 +72,21 @@ export class InstanceRouter extends RouterBroker {
 
         return res.status(HttpStatus.OK).json(response);
       });
+
+    if (!this.configService.get<HttpServer>('SERVER').DISABLE_MANAGER) {
+      this.router.get(this.routerPath('fetchInstances', false), ...guards, async (req, res) => {
+        const key = req.get('apikey');
+
+        const response = await this.dataValidate<InstanceDto>({
+          request: req,
+          schema: null,
+          ClassRef: InstanceDto,
+          execute: (instance) => instanceController.fetchInstances(instance, key),
+        });
+
+        return res.status(HttpStatus.OK).json(response);
+      });
+    }
   }
 
   public readonly router: Router = Router();
