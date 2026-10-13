@@ -64,7 +64,14 @@ async function bootstrap() {
       credentials: configService.get<Cors>('CORS').CREDENTIALS,
     }),
     urlencoded({ extended: true, limit: '25mb' }),
-    json({ limit: '25mb' }),
+    json({
+      limit: '25mb',
+      verify(req, _res, body) {
+        if (req.method === 'POST' && req.url?.split('?')[0] === '/webhook/meta') {
+          (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(body);
+        }
+      },
+    }),
     compression(),
   );
 
