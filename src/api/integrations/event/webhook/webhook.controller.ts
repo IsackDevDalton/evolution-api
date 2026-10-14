@@ -115,8 +115,9 @@ export class WebhookController extends EventController implements EventControlle
         if (enabledLog) {
           const logData = {
             local: `${origin}.sendData-Webhook`,
-            url: baseURL,
-            ...webhookData,
+            event,
+            instance: instanceName,
+            url: this.safeLogUrl(baseURL),
           };
 
           this.logger.log(logData);
@@ -135,14 +136,13 @@ export class WebhookController extends EventController implements EventControlle
         } catch (error) {
           this.logger.error({
             local: `${origin}.sendData-Webhook`,
-            message: `Todas as tentativas falharam: ${error?.message}`,
+            message: 'Todas as tentativas falharam',
             hostName: error?.hostname,
             syscall: error?.syscall,
             code: error?.code,
             error: error?.errno,
-            stack: error?.stack,
             name: error?.name,
-            url: baseURL,
+            url: this.safeLogUrl(baseURL),
             server_url: serverUrl,
           });
         }
@@ -160,8 +160,9 @@ export class WebhookController extends EventController implements EventControlle
         if (enabledLog) {
           const logData = {
             local: `${origin}.sendData-Webhook-Global`,
-            url: globalURL,
-            ...webhookData,
+            event,
+            instance: instanceName,
+            url: this.safeLogUrl(globalURL),
           };
 
           this.logger.log(logData);
@@ -185,14 +186,13 @@ export class WebhookController extends EventController implements EventControlle
         } catch (error) {
           this.logger.error({
             local: `${origin}.sendData-Webhook-Global`,
-            message: `Todas as tentativas falharam: ${error?.message}`,
+            message: 'Todas as tentativas falharam',
             hostName: error?.hostname,
             syscall: error?.syscall,
             code: error?.code,
             error: error?.errno,
-            stack: error?.stack,
             name: error?.name,
-            url: globalURL,
+            url: this.safeLogUrl(globalURL),
             server_url: serverUrl,
           });
         }
@@ -226,7 +226,7 @@ export class WebhookController extends EventController implements EventControlle
           this.logger.log({
             local: `${origin}`,
             message: `Sucesso no envio após ${attempts + 1} tentativas`,
-            url: baseURL,
+            url: this.safeLogUrl(baseURL),
           });
         }
         return;
@@ -238,9 +238,9 @@ export class WebhookController extends EventController implements EventControlle
         if (error?.response?.status && nonRetryableStatusCodes.includes(error.response.status)) {
           this.logger.error({
             local: `${origin}`,
-            message: `Erro não recuperável (${error.response.status}): ${error?.message}. Cancelando retentativas.`,
+            message: `Erro não recuperável (${error.response.status}). Cancelando retentativas.`,
             statusCode: error?.response?.status,
-            url: baseURL,
+            url: this.safeLogUrl(baseURL),
             server_url: serverUrl,
           });
           throw error;
@@ -248,16 +248,15 @@ export class WebhookController extends EventController implements EventControlle
 
         this.logger.error({
           local: `${origin}`,
-          message: `Tentativa ${attempts}/${maxRetryAttempts} falhou: ${isTimeout ? 'Timeout da requisição' : error?.message}`,
+          message: `Tentativa ${attempts}/${maxRetryAttempts} falhou: ${isTimeout ? 'Timeout da requisição' : 'Erro da requisição'}`,
           hostName: error?.hostname,
           syscall: error?.syscall,
           code: error?.code,
           isTimeout,
           statusCode: error?.response?.status,
           error: error?.errno,
-          stack: error?.stack,
           name: error?.name,
-          url: baseURL,
+          url: this.safeLogUrl(baseURL),
           server_url: serverUrl,
         });
 
@@ -276,11 +275,20 @@ export class WebhookController extends EventController implements EventControlle
         this.logger.log({
           local: `${origin}`,
           message: `Aguardando ${nextDelay.toFixed(1)} segundos antes da próxima tentativa`,
-          url: baseURL,
+          url: this.safeLogUrl(baseURL),
         });
 
         await new Promise((resolve) => setTimeout(resolve, nextDelay * 1000));
       }
+    }
+  }
+
+  private safeLogUrl(value: string): string {
+    try {
+      const url = new URL(value);
+      return `${url.origin}${url.pathname}`;
+    } catch {
+      return '[invalid webhook URL]';
     }
   }
 

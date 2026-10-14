@@ -52,9 +52,13 @@ if (!serverConfig.DISABLE_MANAGER) {
       facebookUserToken: facebookConfig.USER_TOKEN,
     });
   });
+} else {
+  router.use(['/manager', '/assets', '/verify-creds', '/instance/fetchInstances'], (_req, res) => {
+    return res.status(HttpStatus.NOT_FOUND).end();
+  });
 }
 
-router.get('/assets/*', (req, res) => {
+if (!serverConfig.DISABLE_MANAGER) router.get('/assets/*', (req, res) => {
   const fileName = req.params[0];
 
   // Security: Reject paths containing traversal patterns
@@ -86,7 +90,7 @@ router
   .use((req, res, next) => telemetry.collectTelemetry(req, res, next))
 
   .get('/', (_req, res) => {
-    if (serverConfig.DISABLE_MANAGER) return res.sendStatus(HttpStatus.NOT_FOUND);
+    if (serverConfig.DISABLE_MANAGER) return res.status(HttpStatus.NOT_FOUND).end();
     return res.redirect(302, '/manager/');
   })
   .use('/instance', new InstanceRouter(configService, ...guards).router)

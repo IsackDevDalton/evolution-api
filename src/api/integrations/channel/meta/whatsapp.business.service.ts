@@ -671,8 +671,6 @@ export class BusinessStartupService extends ChannelStartupService {
           // await this.client.readMessages([received.key]);
         }
 
-        this.logger.log(messageRaw);
-
         sendTelemetry(`received.message.${messageRaw.messageType ?? 'unknown'}`);
 
         this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
@@ -969,10 +967,6 @@ export class BusinessStartupService extends ChannelStartupService {
 
   protected async eventHandler(content: any) {
     try {
-      // Registro para depuración
-      this.logger.log('Contenido recibido en eventHandler:');
-      this.logger.log(JSON.stringify(content, null, 2));
-
       const database = this.configService.get<Database>('DATABASE');
       const settings = await this.findSettings();
 
@@ -1216,8 +1210,6 @@ export class BusinessStartupService extends ChannelStartupService {
         status: status[1],
         source: 'unknown',
       };
-
-      this.logger.log(messageRaw);
 
       this.sendDataWebhook(Events.SEND_MESSAGE, messageRaw);
 
