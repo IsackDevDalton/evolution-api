@@ -4,7 +4,6 @@ import { Events } from '@api/types/wa.types';
 import { Auth, ConfigService, HttpServer, Typebot } from '@config/env.config';
 import { Instance, IntegrationSession, Message, Typebot as TypebotModel } from '@prisma/client';
 import { getConversationMessage } from '@utils/getConversationMessage';
-import { sendTelemetry } from '@utils/sendTelemetry';
 import axios from 'axios';
 
 import { BaseChatbotService } from '../../base-chatbot.service';
@@ -320,8 +319,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
         } else {
           await this.sendMessageWhatsApp(instance, session.remoteJid, formattedText, settings, true);
         }
-
-        sendTelemetry('/message/sendText');
       }
 
       if (message.type === 'image') {
@@ -335,8 +332,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
           null,
           false,
         );
-
-        sendTelemetry('/message/sendMedia');
       }
 
       if (message.type === 'video') {
@@ -350,8 +345,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
           null,
           false,
         );
-
-        sendTelemetry('/message/sendMedia');
       }
 
       if (message.type === 'audio') {
@@ -364,8 +357,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
           },
           false,
         );
-
-        sendTelemetry('/message/sendWhatsAppAudio');
       }
 
       const wait = findItemAndGetSecondsToWait(clientSideActions, message.id);
@@ -395,8 +386,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
         } else {
           await this.sendMessageWhatsApp(instance, session.remoteJid, formattedText, settings, true);
         }
-
-        sendTelemetry('/message/sendText');
       }
 
       await prismaRepository.integrationSession.update({
@@ -657,7 +646,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
                 },
                 true,
               );
-              sendTelemetry('/message/sendText');
             }
             return;
           }
@@ -822,7 +810,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
               },
               true,
             );
-            sendTelemetry('/message/sendText');
           }
           return;
         }
@@ -930,7 +917,6 @@ export class TypebotService extends BaseChatbotService<TypebotModel, any> {
           },
           true,
         );
-        sendTelemetry('/message/sendText');
       }
       return;
     }

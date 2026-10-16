@@ -16,15 +16,13 @@ import {
 import * as s3Service from '@api/integrations/storage/s3/libs/minio.server';
 import { ProviderFiles } from '@api/provider/sessions';
 import { PrismaRepository } from '@api/repository/repository.service';
-import { chatbotController } from '@api/server.module';
 import { CacheService } from '@api/services/cache.service';
 import { ChannelStartupService } from '@api/services/channel.service';
 import { Events, wa } from '@api/types/wa.types';
-import { AudioConverter, Chatwoot, ConfigService, Database, Openai, S3, WaBusiness } from '@config/env.config';
+import { AudioConverter, ConfigService, Database, Openai, S3, WaBusiness } from '@config/env.config';
 import { BadRequestException, InternalServerErrorException } from '@exceptions';
 import { createJid } from '@utils/createJid';
 import { status } from '@utils/renderStatus';
-import { sendTelemetry } from '@utils/sendTelemetry';
 import axios from 'axios';
 import { arrayUnique, isURL } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';
@@ -129,7 +127,6 @@ export class BusinessStartupService extends ChannelStartupService {
     const content = data.entry[0].changes[0].value;
 
     try {
-      this.loadChatwoot();
 
       this.eventHandler(content);
 
@@ -671,30 +668,7 @@ export class BusinessStartupService extends ChannelStartupService {
           // await this.client.readMessages([received.key]);
         }
 
-        sendTelemetry(`received.message.${messageRaw.messageType ?? 'unknown'}`);
-
         this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
-
-        await chatbotController.emit({
-          instance: { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-          remoteJid: messageRaw.key.remoteJid,
-          msg: messageRaw,
-          pushName: messageRaw.pushName,
-        });
-
-        if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-          const chatwootSentMessage = await this.chatwootService.eventWhatsapp(
-            Events.MESSAGES_UPSERT,
-            { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-            messageRaw,
-          );
-
-          if (chatwootSentMessage?.id) {
-            messageRaw.chatwootMessageId = chatwootSentMessage.id;
-            messageRaw.chatwootInboxId = chatwootSentMessage.id;
-            messageRaw.chatwootConversationId = chatwootSentMessage.id;
-          }
-        }
 
         if (!this.isMediaMessage(message) || !this.configService.get<S3>('S3').ENABLE || message.type === 'sticker') {
           const dbData = { ...messageRaw };
@@ -730,14 +704,6 @@ export class BusinessStartupService extends ChannelStartupService {
 
         if (contact) {
           this.sendDataWebhook(Events.CONTACTS_UPDATE, contactRaw);
-
-          if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-            await this.chatwootService.eventWhatsapp(
-              Events.CONTACTS_UPDATE,
-              { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-              contactRaw,
-            );
-          }
 
           await this.prismaRepository.contact.updateMany({
             where: { instanceId: this.instanceId, remoteJid: targetRemoteJid },
@@ -831,14 +797,6 @@ export class BusinessStartupService extends ChannelStartupService {
               await this.prismaRepository.messageUpdate.create({
                 data: message,
               });
-
-              if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-                this.chatwootService.eventWhatsapp(
-                  Events.MESSAGES_DELETE,
-                  { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-                  { key: key },
-                );
-              }
 
               continue;
             }
@@ -1212,22 +1170,6 @@ export class BusinessStartupService extends ChannelStartupService {
       };
 
       this.sendDataWebhook(Events.SEND_MESSAGE, messageRaw);
-
-      if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && !isIntegration) {
-        this.chatwootService.eventWhatsapp(
-          Events.SEND_MESSAGE,
-          { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-          messageRaw,
-        );
-      }
-
-      if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && isIntegration)
-        await chatbotController.emit({
-          instance: { instanceName: this.instance?.name || this.instanceName || 'unknown', instanceId: this.instanceId },
-          remoteJid: messageRaw.key.remoteJid,
-          msg: messageRaw,
-          pushName: messageRaw.pushName,
-        });
 
       await this.prismaRepository.message.create({
         data: messageRaw,

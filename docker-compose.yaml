@@ -3,7 +3,8 @@ version: "3.8"
 services:
   api:
     container_name: evolution_api
-    image: evoapicloud/evolution-api:latest
+    image: wappi/gateway:local
+    build: .
     restart: always
     depends_on:
       - redis
@@ -19,15 +20,6 @@ services:
       - .env
     expose:
       - "8080"
-
-  frontend:
-    container_name: evolution_frontend
-    image: evoapicloud/evolution-manager:latest
-    restart: always
-    ports:
-      - "3000:80"
-    networks:
-      - evolution-net
 
   redis:
     container_name: evolution_redis

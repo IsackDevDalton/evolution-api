@@ -92,7 +92,6 @@ export const instanceController = new InstanceController(
   configService,
   prismaRepository,
   eventEmitter,
-  chatwootService,
   settingsService,
   proxyController,
   cache,

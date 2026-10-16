@@ -1,14 +1,5 @@
 import { InstanceDto } from '@api/dto/instance.dto';
 import { PrismaRepository } from '@api/repository/repository.service';
-import {
-  difyController,
-  evoaiController,
-  evolutionBotController,
-  flowiseController,
-  n8nController,
-  openaiController,
-  typebotController,
-} from '@api/server.module';
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { Logger } from '@config/logger.config';
 import { IntegrationSession } from '@prisma/client';
@@ -71,39 +62,14 @@ export class ChatbotController {
     return this.waMonitor;
   }
 
-  public async emit({
-    instance,
-    remoteJid,
-    msg,
-    pushName,
-    isIntegration = false,
-  }: {
+  public async emit(_data: {
     instance: InstanceDto;
     remoteJid: string;
     msg: any;
     pushName?: string;
     isIntegration?: boolean;
   }): Promise<void> {
-    const emitData = {
-      instance,
-      remoteJid,
-      msg,
-      pushName,
-      isIntegration,
-    };
-    evolutionBotController.emit(emitData);
-
-    typebotController.emit(emitData);
-
-    openaiController.emit(emitData);
-
-    difyController.emit(emitData);
-
-    n8nController.emit(emitData);
-
-    evoaiController.emit(emitData);
-
-    flowiseController.emit(emitData);
+    return;
   }
 
   public processDebounce(

@@ -125,52 +125,10 @@ export class EventManager {
     integration?: string[];
     extra?: Record<string, any>;
   }): Promise<void> {
-    await this.websocket.emit(eventData);
-    await this.rabbitmq.emit(eventData);
-    await this.nats.emit(eventData);
-    await this.sqs.emit(eventData);
     await this.webhook.emit(eventData);
-    await this.pusher.emit(eventData);
-    await this.kafka.emit(eventData);
   }
 
   public async setInstance(instanceName: string, data: any): Promise<any> {
-    if (data.websocket) {
-      await this.websocket.set(instanceName, {
-        websocket: {
-          enabled: true,
-          events: data.websocket?.events,
-        },
-      });
-    }
-
-    if (data.rabbitmq) {
-      await this.rabbitmq.set(instanceName, {
-        rabbitmq: {
-          enabled: true,
-          events: data.rabbitmq?.events,
-        },
-      });
-    }
-
-    if (data.nats) {
-      await this.nats.set(instanceName, {
-        nats: {
-          enabled: true,
-          events: data.nats?.events,
-        },
-      });
-    }
-
-    if (data.sqs) {
-      await this.sqs.set(instanceName, {
-        sqs: {
-          enabled: true,
-          events: data.sqs?.events,
-        },
-      });
-    }
-
     if (data.webhook) {
       await this.webhook.set(instanceName, {
         webhook: {
@@ -184,27 +142,5 @@ export class EventManager {
       });
     }
 
-    if (data.pusher) {
-      await this.pusher.set(instanceName, {
-        pusher: {
-          enabled: true,
-          events: data.pusher?.events,
-          appId: data.pusher?.appId,
-          key: data.pusher?.key,
-          secret: data.pusher?.secret,
-          cluster: data.pusher?.cluster,
-          useTLS: data.pusher?.useTLS,
-        },
-      });
-    }
-
-    if (data.kafka) {
-      await this.kafka.set(instanceName, {
-        kafka: {
-          enabled: true,
-          events: data.kafka?.events,
-        },
-      });
-    }
   }
 }

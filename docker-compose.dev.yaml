@@ -1,7 +1,7 @@
 services:
   api:
     container_name: evolution_api
-    image: evolution/api:local
+    image: wappi/gateway:local
     build: .
     restart: always
     ports:
@@ -15,15 +15,6 @@ services:
     expose:
       - 8080
 
-  frontend:
-    container_name: evolution_frontend
-    image: evolution/manager:local
-    build: ./evolution-manager-v2
-    restart: always
-    ports:
-      - "3000:80"
-    networks:
-      - evolution-net
 
 volumes:
   evolution_instances:

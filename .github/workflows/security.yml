@@ -26,8 +26,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v5
-      with:
-        submodules: recursive
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -49,7 +47,5 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
